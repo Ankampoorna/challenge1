@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Online Shop — Demo</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#93a3b8;--accent:#06b6d4;--accent-2:#7c3aed}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;line-height:1.4;margin:0;background:linear-gradient(180deg,#071027 0%, #071a2a 60%),var(--bg);color:#e6eef6;padding:24px}
+    .container{max-width:1100px;margin:0 auto}
+
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:44px;height:44px;background:linear-gradient(135deg,var(--accent),var(--accent-2));border-radius:10px;display:grid;place-items:center;font-weight:700}
+    h1{font-size:20px;margin:0}
+    .search{flex:1;margin:0 20px}
+    .search input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);color:inherit}
+
+    .controls{display:flex;gap:12px;align-items:center}
+    .btn{background:linear-gradient(90deg,var(--accent),var(--accent-2));border:none;padding:10px 14px;border-radius:10px;color:#041122;font-weight:600;cursor:pointer}
+    .icon-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:8px;border-radius:8px;color:var(--muted);cursor:pointer}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:12px;border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;gap:10px}
+    .thumb{height:140px;border-radius:8px;background:#07162a;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--muted)}
+    .title{font-weight:600}
+    .price{font-weight:700}
+    .meta{color:var(--muted);font-size:13px}
+
+    .quantity{display:flex;align-items:center;gap:8px}
+    .qty-btn{padding:6px 8px;background:#0b1420;border-radius:8px;border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+
+    /* Cart panel */
+    .cart-panel{position:fixed;right:18px;bottom:18px;width:380px;max-width:calc(100% - 36px);background:linear-gradient(180deg,#071427,#02101a);border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    .cart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .cart-list{max-height:320px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding-right:6px}
+    .cart-item{display:flex;gap:10px;align-items:center}
+    .cart-item .thumb{height:56px;width:56px;font-size:12px}
+    .cart-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+
+    /* Empty state */
+    .empty{padding:28px;text-align:center;color:var(--muted)}
+
+    /* Responsive tweaks */
+    @media (max-width:600px){header{flex-direction:column;align-items:stretch;gap:12px}.search{order:2;margin:0}}
+
+    /* tiny util */
+    small{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="logo">OS</div>
+        <div>
+          <h1>Online Shop — Demo</h1>
+          <small>Simple single-file HTML + JS shopping UI</small>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="searchInput" placeholder="Search products — try 'shirt', 'mug', or 'lamp'" />
+      </div>
+
+      <div class="controls">
+        <button class="icon-btn" id="viewFavoritesBtn" title="Favorites">❤ <span id="favCount" style="margin-left:6px;color:var(--muted)">0</span></button>
+        <button class="btn" id="openCartBtn">Cart (<span id="cartCount">0</span>)</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="grid" id="productsGrid">
+        <!-- Products rendered here by JS -->
+      </section>
+    </main>
+  </div>
+
+  <!-- Cart Panel (hidden by default) -->
+  <div id="cartPanel" class="cart-panel" style="display:none">
+    <div class="cart-head">
+      <strong>Your Cart</strong>
+      <div>
+        <small id="cartTotalText">0 items</small>
+      </div>
+    </div>
+    <div class="cart-list" id="cartList">
+      <div class="empty" id="cartEmpty">Your cart is empty — add a product to get started.</div>
+    </div>
+    <div class="cart-footer">
+      <div>
+        <div style="font-weight:700">Total: <span id="cartTotal">₹0.00</span></div>
+        <small id="taxNote">Includes GST (demo)</small>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn" id="checkoutBtn">Checkout</button>
+        <button class="icon-btn" id="closeCartBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Simple demo product catalog
+    const PRODUCTS = [
+      {id: 'p1', title: 'Classic Tee', price: 499, tag: 'shirt', desc: 'Comfortable cotton t-shirt'},
+      {id: 'p2', title: 'Ceramic Mug', price: 299, tag: 'mug', desc: '350ml mug with print'},
+      {id: 'p3', title: 'Desk Lamp', price: 1299, tag: 'lamp', desc: 'LED desk lamp with dimmer'},
+      {id: 'p4', title: 'Sneakers', price: 2499, tag: 'shoes', desc: 'Casual everyday sneakers'},
+      {id: 'p5', title: 'Backpack', price: 1999, tag: 'bag', desc: '33L water-resistant backpack'},
+      {id: 'p6', title: 'Wireless Earbuds', price: 1599, tag: 'electronics', desc: 'Bluetooth 5.2, good battery'},
+      {id: 'p7', title: 'Notebook', price: 199, tag: 'stationery', desc: 'Hardcover lined notebook'},
+      {id: 'p8', title: 'Water Bottle', price: 399, tag: 'bottle', desc: 'Stainless steel 500ml bottle'}
+    ];
+
+    // State
+    let cart = {}; // {productId: quantity}
+    let favorites = new Set();
+
+    // DOM refs
+    const productsGrid = document.getElementById('productsGrid');
+    const cartPanel = document.getElementById('cartPanel');
+    const cartList = document.getElementById('cartList');
+    const cartCountEl = document.getElementById('cartCount');
+    const cartTotalEl = document.getElementById('cartTotal');
+    const cartTotalText = document.getElementById('cartTotalText');
+    const cartEmpty = document.getElementById('cartEmpty');
+    const openCartBtn = document.getElementById('openCartBtn');
+    const closeCartBtn = document.getElementById('closeCartBtn');
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const searchInput = document.getElementById('searchInput');
+    const favCount = document.getElementById('favCount');
+
+    // Helpers
+    function formatINR(n){ return '₹' + n.toFixed(2); }
+
+    function renderProducts(filter=''){
+      const q = filter.trim().toLowerCase();
+      productsGrid.innerHTML='';
+      const filtered = PRODUCTS.filter(p => (!q) || p.title.toLowerCase().includes(q) || p.tag.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
+      for(const p of filtered){
+        const inCartQty = cart[p.id] || 0;
+        const isFav = favorites.has(p.id);
+        const card = document.createElement('article');
+        card.className='card';
+        card.innerHTML = `
+          <div class="thumb">${p.tag.toUpperCase()}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="title">${p.title}</div>
+              <div class="meta">${p.desc}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="price">${formatINR(p.price)}</div>
+              <div class="meta">${p.tag}</div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="icon-btn" data-fav="${p.id}" title="Toggle favorite">${isFav? '★' : '☆'}</button>
+              <small>Qty in cart: ${inCartQty}</small>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn" data-add="${p.id}">Add to cart</button>
+            </div>
+          </div>
+        `;
+        productsGrid.appendChild(card);
+      }
+      if(filtered.length===0){
+        productsGrid.innerHTML = '<div class="empty">No products found matching your search.</div>';
+      }
+    }
+
+    function saveState(){
+      try{ localStorage.setItem('demo_cart', JSON.stringify(cart)); localStorage.setItem('demo_favs', JSON.stringify(Array.from(favorites))); }catch(e){/* ignore */}
+    }
+    function loadState(){
+      try{
+        const c = JSON.parse(localStorage.getItem('demo_cart') || '{}'); cart = c || {};
+        const f = JSON.parse(localStorage.getItem('demo_favs') || '[]'); favorites = new Set(f || []);
+      }catch(e){cart={};favorites=new Set();}
+    }
+
+    function updateCartUI(){
+      const itemCount = Object.values(cart).reduce((s,q)=>s+q,0);
+      cartCountEl.textContent = itemCount;
+      favCount.textContent = favorites.size;
+      renderCartList();
+      renderProducts(searchInput.value);
+    }
+
+    function renderCartList(){
+      cartList.innerHTML='';
+      const entries = Object.entries(cart);
+      if(entries.length===0){ cartList.appendChild(cartEmpty); cartTotalEl.textContent = formatINR(0); cartTotalText.textContent='0 items'; return; }
+      let total=0;
+      for(const [id,qty] of entries){
+        const p = PRODUCTS.find(x=>x.id===id);
+        if(!p) continue;
+        total += p.price * qty;
+        const item = document.createElement('div'); item.className='cart-item';
+        item.innerHTML = `
+          <div class="thumb">${p.tag.toUpperCase()}</div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:600">${p.title}</div>
+              <div class="price">${formatINR(p.price * qty)}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <div class="quantity">
+                <button class="qty-btn" data-decr="${p.id}">-</button>
+                <div>${qty}</div>
+                <button class="qty-btn" data-incr="${p.id}">+</button>
+                <button class="qty-btn" data-remove="${p.id}" title="Remove" style="margin-left:8px">Remove</button>
+              </div>
+              <div class="meta">${p.tag}</div>
+            </div>
+          </div>
+        `;
+        cartList.appendChild(item);
+      }
+      // taxes or extra demo fees
+      const tax = Math.round(total * 0.18); // demo 18%
+      const grand = total + tax;
+      const footer = document.createElement('div');
+      footer.style.marginTop='10px';
+      footer.innerHTML = `<div style="display:flex;justify-content:space-between"><small>Subtotal</small><small>${formatINR(total)}</small></div>
+                          <div style="display:flex;justify-content:space-between"><small>GST (18%)</small><small>${formatINR(tax)}</small></div>
+                          <div style="display:flex;justify-content:space-between;font-weight:700;margin-top:6px"><span>Grand</span><span>${formatINR(grand)}</span></div>`;
+      cartList.appendChild(footer);
+
+      cartTotalEl.textContent = formatINR(grand);
+      cartTotalText.textContent = `${entries.length} items`;
+    }
+
+    // Actions
+    document.body.addEventListener('click', e => {
+      const add = e.target.closest('[data-add]');
+      if(add){ const id = add.getAttribute('data-add'); cart[id] = (cart[id]||0)+1; saveState(); updateCartUI(); return; }
+
+      const incr = e.target.closest('[data-incr]');
+      if(incr){ const id = incr.getAttribute('data-incr'); cart[id] = (cart[id]||0)+1; saveState(); updateCartUI(); return; }
+
+      const decr = e.target.closest('[data-decr]');
+      if(decr){ const id = decr.getAttribute('data-decr'); cart[id] = Math.max(0,(cart[id]||0)-1); if(cart[id]===0) delete cart[id]; saveState(); updateCartUI(); return; }
+
+      const rem = e.target.closest('[data-remove]');
+      if(rem){ const id = rem.getAttribute('data-remove'); delete cart[id]; saveState(); updateCartUI(); return; }
+
+      const fav = e.target.closest('[data-fav]');
+      if(fav){ const id = fav.getAttribute('data-fav'); if(favorites.has(id)) favorites.delete(id); else favorites.add(id); saveState(); updateCartUI(); return; }
+    });
+
+    openCartBtn.addEventListener('click', ()=>{ cartPanel.style.display='block'; });
+    closeCartBtn.addEventListener('click', ()=>{ cartPanel.style.display='none'; });
+    checkoutBtn.addEventListener('click', ()=>{
+      if(Object.keys(cart).length===0){ alert('Your cart is empty. Add something first.'); return; }
+      // Demo checkout flow — in a real app you'd call a server / payment gateway here
+      const items = Object.entries(cart).map(([id,q])=>`${q} x ${PRODUCTS.find(p=>p.id===id).title}`).join('\n');
+      alert('Checkout — Order summary:\n\n' + items + '\n\nTotal: ' + cartTotalEl.textContent + '\n\n(This is a demo — no real payment)');
+      // Clear cart after checkout
+      cart = {}; saveState(); updateCartUI(); cartPanel.style.display='none';
+    });
+
+    searchInput.addEventListener('input', (e)=>{ renderProducts(e.target.value); });
+
+    // initial load
+    loadState(); renderProducts(); updateCartUI();
+  </script>
+</body>
+</html>
